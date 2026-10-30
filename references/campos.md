@@ -9,6 +9,7 @@ Regras tiradas de orçamentos reais da corretora para Allianz, Tokio Marine, Yel
   "seguradora": "Allianz",
   "segurado": "MARIA APARECIDA DOS SANTOS",
   "condutor": "MARIA APARECIDA DOS SANTOS",
+  "pessoa_juridica": false,
   "veiculo": "HYUNDAI HB20 COMFORT 1.0 12v(Flex) 4p",
   "placa": "ABC1D23",
   "cep_pernoite": "16900-000",
@@ -42,8 +43,9 @@ Use os valores como texto, no formato brasileiro (`1.000.000,00`), exatamente co
 |---|---|
 | `segurado` | Nome do segurado/proponente, em maiúsculas. |
 | `condutor` | Nome do principal condutor. Se for o próprio segurado (inclusive quando a cotação só diz "Próprio segurado"), repita o nome. O PDF mostra "SEGURADO E CONDUTOR". Se for outra pessoa, mostra as duas linhas. |
+| `pessoa_juridica` | `true` quando o segurado for empresa (CNPJ, "Tipo de pessoa: JURÍDICA"). Com `condutor` vazio ou igual ao segurado, o PDF mostra só "SEGURADO:" com o nome da empresa. Não pergunte o condutor de PJ: se a cotação não trouxer, deixe `""`. |
 | `veiculo` | Copie o campo do veículo como a seguradora escreve, tirando só códigos internos e código FIPE. Não acrescente fabricante nem ano que não estejam nesse campo. Ex.: Tokio traz "FIAT" num campo à parte e "TORO FREEDOM..." no campo Veículo, e o orçamento usa só `TORO FREEDOM 2.0 16V 4X4 DIESEL AUT`. |
-| `placa` | Como está na cotação, com ou sem hífen (`ABC-1D23`, `XYZ9A88`). **Algumas cotações não trazem a placa (a HDI, por exemplo). Nesse caso pergunte ao usuário. Não invente nem deixe em branco sem avisar.** |
+| `placa` | Como está na cotação, com ou sem hífen (`ABC-1D23`, `XYZ9A88`). **Algumas cotações não trazem a placa (a HDI, por exemplo). Nesse caso pergunte ao usuário. Não invente nem deixe em branco sem avisar.** Exceção: **PJ sem placa na cotação** — não pergunte, use o chassi: `"placa": "CHASSI 9BD15802AA6416857"` (o PDF mostra `UNO MILLE 1.0 8V FIRE FLEX 2P - CHASSI 9BD15802AA6416857`). |
 | `cep_pernoite` | Formato `00000-000`. Se a cotação trouxer só 5 dígitos (Yelum: `16900`), complete com `-000` (`16900-000`). |
 
 ## Coberturas
@@ -56,6 +58,8 @@ Use os valores como texto, no formato brasileiro (`1.000.000,00`), exatamente co
 | `vidros` | `Sim` se houver qualquer cobertura ou plano de vidros ("Plano 3", "Completo", "Superior"), senão `Não`. |
 | `assistencia` | Guincho/reboque sem limite ("Km Livre", "Ilimitado", "Sem limite de Km") é `Km Ilimitado`. Com limite, `500 Km`, por exemplo. Se a cotação só der o nome do plano, sem quilometragem (Yelum "ASSISTÊNCIA - SUPERIOR"), use `Km Ilimitado` e avise o usuário que foi deduzido do plano. |
 | `carro_reserva` | Número de dias: `15 Dias`, `30 Dias`, `35 Dias`. Sem carro reserva, `Não`. Se houver dois prazos (HDI: "7 dias quando terceiro, 30 dias com ar"), use o do próprio sinistro (o maior, que aparece no nome da cobertura). |
+
+**Coluna com `Não` sai da página.** A corretora fala o que o cliente tem, não o que ele não tem, então o script remove do orçamento toda coluna `Não` (vidros, carro reserva, APP, casco) e redistribui as outras. Continue pondo `Não` no JSON para essas coberturas.
 
 Ignore o prêmio de cada cobertura: ele não vai para o cliente. Cobertura sem coluna no modelo (ex.: "Gastos com Defesa", "Despesas Extras") fica de fora, mas cite no resumo ao usuário.
 
@@ -76,6 +80,7 @@ Detalhes:
 - Yelum escreve "1 + N": o total é N+1 parcelas (`1 + 5` = `06x`, `1 + 11` = `12x`).
 - Número de parcelas sempre com dois dígitos e "x" (`04x`, `12x`).
 - Uma forma cujo máximo sem juros é 1x não gera linha.
+- **Cotação que mostra só 1 parcela** (a Zurich costuma vir assim) não quer dizer que não há parcelamento: o orçamento sempre leva o máximo sem juros que a seguradora oferece. Use o máximo conhecido da seguradora (veja "Por seguradora"), com valor = total ÷ parcelas arredondado ao centavo, e avise o usuário que as parcelas foram calculadas, não lidas da cotação. Se o máximo da seguradora não estiver documentado aqui, pergunte.
 
 ## Franquias
 
@@ -106,6 +111,14 @@ Detalhes:
 - Veículo: campo "Marca/Tipo do Veículo". CEP só com 5 dígitos (completar `-000`).
 - Pagamento: tabela "1 + N" com colunas Carnê, Débito C/C, Cartão e PIX, sem indicar juros (use a conta parcelas × valor).
 - Franquias: em "Informações complementares". `franquias_texto` = o texto depois de "VIDROS SUPERIOR (Rede Referenciada) - Franquia" até o último valor, sem a observação final ("- Cobertura LED e Xenon somente quando..."). `franquias_extras_texto` = a linha de pequenos reparos sem o telefone: `PROTECAO PEQUENOS REPAROS - Franquia R$190,00`.
+
+**Zurich** ("Demonstrativo de Cálculo", 1 página)
+- Veículo: campo "Veículo" (ex.: `UNO MILLE 1.0 8V FIRE FLEX 2P`). Não traz placa; para PJ use o chassi (ver `placa`). CEP: "CEP do local de pernoite", sem hífen (`16370055` → `16370-055`).
+- Segurado: "Nome completo/Razão social"; "Tipo de pessoa: JURÍDICA" → `pessoa_juridica: true`.
+- Coberturas: tabela "Coberturas" (LMG). "Veículo - Colisão/Incêndio/Roubo 100% FIPE" → `100% FIPE`; RCV Danos Materiais/Corporais/Morais; APP (LMG por passageiro). Assistência: cláusula "ASSISTÊNCIA 24 HS BÁSICA 150 Km" → `150 Km`. Sem vidros e sem carro reserva quando não aparecem na tabela (`Não`, e as colunas somem).
+- Pagamento: a cotação costuma trazer só 1 parcela (= à vista). O máximo sem juros da Zurich é **10x no débito em conta e 12x no cartão de crédito**:
+  `10x 160,97 Cartão de Crédito / Débito`, `12x 134,14 Cartão de Crédito` (à vista 1.609,67).
+- Franquias: só a do casco, na coluna "Franquia (R$)" da linha do veículo (`A - 3.048,78` → `3.048,78`). Sem lista de vidros, `franquias_texto` e `franquias_extras_texto` ficam `""`.
 
 **HDI** (~2 páginas, às vezes **escaneada**, só imagem)
 - Veículo: campo "Veículo" sem o código inicial e sem o "(FIPE ...)": `CHEVROLET - ONIX - SEDAN PLUS LT 1.0 12V TB FLEX MEC.`

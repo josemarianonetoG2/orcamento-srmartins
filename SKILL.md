@@ -11,7 +11,7 @@ O trabalho se divide em duas partes:
 - **Você (Claude)** lê a cotação e decide o valor de cada campo. Cada seguradora escreve de um jeito, então é aqui que entra o julgamento.
 - **O script** desenha o PDF. O layout fica sempre igual ao modelo, sem você precisar posicionar nada.
 
-Quando o usuário mandar só o comando (/orcamento ou /orçamento) e o PDF, não pergunte nada antes: faça o passo a passo e devolva o orçamento pronto. Pergunte só o que faltar de verdade (a placa, por exemplo).
+Quando o usuário mandar só o comando (/orcamento ou /orçamento) e o PDF, não pergunte nada antes: faça o passo a passo e devolva o orçamento pronto. Pergunte só o que faltar de verdade (a placa de pessoa física, por exemplo).
 
 ## Passo a passo
 
@@ -41,13 +41,13 @@ Para rodar os scripts, use `<skill>/.venv/bin/python` se essa pasta existir (é 
 
 ## O que não muda
 
-Cabeçalho, logo, endereço, CNPJ, o título "ORÇAMENTO DE SEGURO AUTOMOVEL", o cabeçalho da tabela de coberturas e a nota do rodapé já estão em `assets/modelo_base.pdf`. Não recrie nada disso. Se a corretora mudar o modelo (outro endereço, outra logo), o certo é gerar um novo `modelo_base.pdf` a partir do Word atualizado, e não desenhar por cima.
+Cabeçalho, logo, endereço, CNPJ, o título "ORÇAMENTO DE SEGURO AUTOMOVEL", o cabeçalho da tabela de coberturas e a nota do rodapé já estão em `assets/modelo_base.pdf` (o script só redesenha o cabeçalho da tabela quando alguma coluna sai). Não recrie nada disso. Se a corretora mudar o modelo (outro endereço, outra logo), o certo é gerar um novo `modelo_base.pdf` a partir do Word atualizado, e não desenhar por cima.
 
 ## Quando a cotação foge do padrão
 
 - **Mais de uma oferta na cotação** (ex.: "Exclusivo" e "Compacto"): pergunte qual oferta vai para o cliente, a menos que o usuário já tenha dito.
-- **Cobertura ausente** (sem carro reserva, sem vidros): use `"Não"` na coluna. Não deixe em branco.
+- **Cobertura ausente** (sem carro reserva, sem vidros): use `"Não"` no JSON e o script **tira a coluna da página** (as demais se espalham pela largura). A corretora mostra ao cliente o que ele tem, nunca o que não tem: um "Não" na tabela passa a impressão de que estamos tirando algo dele.
 - **Cotação vencida ou quase**: compare a validade da cotação ("Garantimos as condições até…", "Validade cotação", "Cotação válida até") com a data de hoje. Se já venceu ou vence em até 2 dias, gere o orçamento mesmo assim, mas avise o usuário com destaque: o preço pode não valer mais. Se só o início da vigência já passou (comum em renovação), mencione numa linha, sem alarme.
 - **Cobertura sem coluna no modelo** (ex.: "RCF – Gastos com Defesa"): fica fora da página. Cite no resumo para o usuário decidir se avisa o cliente.
-- **Moto**: o modelo serve, mas o título continua "ORÇAMENTO DE SEGURO AUTOMOVEL", e moto costuma vir sem APP, sem vidros e sem carro reserva (`Não` nessas colunas). Avise o usuário dessas diferenças.
+- **Moto**: o modelo serve, mas o título continua "ORÇAMENTO DE SEGURO AUTOMOVEL", e moto costuma vir sem APP, sem vidros e sem carro reserva (`Não` nessas colunas, que somem da página). Avise o usuário dessas diferenças.
 - **Seguro que não é de veículo** (residencial, vida): este modelo é só de automóvel. Diga isso ao usuário em vez de forçar os campos.

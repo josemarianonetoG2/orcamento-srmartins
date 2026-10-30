@@ -44,6 +44,24 @@ COLUNAS = [
     ("carro_reserva", 515.9, 574.0),
 ]
 
+# Títulos das colunas, para redesenhar o cabeçalho quando alguma coluna sai.
+TITULOS = {
+    "veiculo": ["Veículo"],
+    "danos_materiais": ["Danos", "Materiais"],
+    "danos_corporais": ["Danos", "Corporais"],
+    "danos_morais": ["Danos", "Morais"],
+    "app": ["APP – Morte", "Invalidez"],
+    "vidros": ["Vidros"],
+    "assistencia": ["Assistência"],
+    "carro_reserva": ["Carro", "Reserva"],
+}
+TABELA_X0, TABELA_X1 = 48.7, 574.0
+CABECALHO = fitz.Rect(41.0, 299.5, 575.0, 325.6)  # entre as duas linhas azuis
+
+
+def ausente(valor):
+    return not valor or str(valor).strip().lower() in ("não", "nao", "-")
+
 
 class Pagina:
     def __init__(self, page):
@@ -84,6 +102,14 @@ class Pagina:
 
 def gerar(dados, saida):
     doc = fitz.open(BASE)
+    cob = dados["coberturas"]
+    # A corretora mostra só o que o cliente tem: cobertura "Não" sai da tabela.
+    colunas = [c for c in COLUNAS if not ausente(cob.get(c[0]))]
+    if len(colunas) < len(COLUNAS):
+        # Apaga só o texto do cabeçalho do modelo; as linhas azuis ficam.
+        doc[0].add_redact_annot(CABECALHO)
+        doc[0].apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE,
+                                graphics=fitz.PDF_REDACT_LINE_ART_NONE)
     p = Pagina(doc[0])
 
     # --- Segurado / veículo / CEP ------------------------------------------
@@ -94,7 +120,10 @@ def gerar(dados, saida):
         veiculo = f"{veiculo} - {dados['placa'].strip().upper()}"
 
     linhas = []
-    if not condutor or condutor == segurado:
+    if dados.get("pessoa_juridica") and (not condutor or condutor == segurado):
+        # Empresa sem condutor informado: só o nome da empresa.
+        linhas.append(("SEGURADO:", segurado))
+    elif not condutor or condutor == segurado:
         linhas.append(("SEGURADO E CONDUTOR:", segurado))
     else:
         linhas.append(("SEGURADO:", segurado))
@@ -111,9 +140,18 @@ def gerar(dados, saida):
         y += passo
 
     # --- Tabela de coberturas ----------------------------------------------
-    cob = dados["coberturas"]
-    for chave, x, max_x in COLUNAS:
-        p.texto(x, 340.5, str(cob.get(chave) or "-"), "reg", 10, max_x=max_x - 2)
+    if len(colunas) < len(COLUNAS):
+        # Redistribui as colunas que ficaram pela largura toda da tabela.
+        largura = (TABELA_X1 - TABELA_X0) / len(colunas)
+        colunas = [(chave, TABELA_X0 + i * largura, TABELA_X0 + (i + 1) * largura - 4)
+                   for i, (chave, _, _) in enumerate(colunas)]
+        for chave, x, max_x in colunas:
+            titulo = TITULOS[chave]
+            ys = [316.0] if len(titulo) == 1 else [309.3, 322.7]
+            for linha, y in zip(titulo, ys):
+                p.texto(x, y, linha, "bold", 11.04, max_x=max_x)
+    for chave, x, max_x in colunas:
+        p.texto(x, 340.5, str(cob[chave]), "reg", 10, max_x=max_x - 2)
 
     # --- Opções de pagamento -----------------------------------------------
     y = 420.2
